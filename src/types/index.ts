@@ -190,6 +190,8 @@ export interface UpdateMemberFinanceInput {
   memberId: string;
   totalAmount: number;
   addAmount: number;
+  /** Cumulative paid. Sent so older Apps Script deployments still accept the save. */
+  paidAmount?: number;
 }
 
 export interface CreatePaymentInput {

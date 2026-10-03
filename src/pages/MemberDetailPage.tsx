@@ -5,7 +5,7 @@ import { Badge, ConfirmDialog, ErrorState, Modal, PageHeader, Spinner, statusTon
 import { useAuthedApi } from "../hooks/useAuthedApi";
 import { useToast } from "../hooks/useToast";
 import type { Member, Payment, ReceiptData } from "../types";
-import { computePendingAfterAdd, computePendingAmount, validateAddPayment } from "../utils/finance";
+import { computePendingAfterAdd, computePendingAmount, roundMoney, validateAddPayment } from "../utils/finance";
 import { formatDate, formatMoney } from "../utils/format";
 
 export function MemberDetailPage() {
@@ -113,7 +113,14 @@ export function MemberDetailPage() {
       return;
     }
     setSavingFinance(true);
-    const result = await call((api, token) => api.updateMemberFinance(token, { memberId: id, totalAmount, addAmount }));
+    const result = await call((api, token) =>
+      api.updateMemberFinance(token, {
+        memberId: id,
+        totalAmount,
+        addAmount,
+        paidAmount: roundMoney(member.paidAmount + addAmount),
+      }),
+    );
     setSavingFinance(false);
     if (!result.ok) {
       push(result.error, "error");
