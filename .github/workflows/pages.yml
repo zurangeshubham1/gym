@@ -24,10 +24,14 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci
+      - name: Stamp build version
+        run: echo "${{ github.sha }}" > public/version.txt
       - run: npm run build
         env:
           VITE_GYM_API_URL: ${{ secrets.VITE_GYM_API_URL }}
           VITE_BASE_PATH: /gym/
+      - name: Verify new finance UI is in the bundle
+        run: grep -q "this time only" dist/assets/*.js
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
