@@ -26,12 +26,12 @@ export async function downloadReceiptPdf(receipt: ReceiptData): Promise<void> {
     `Plan: ${planName}`,
     `Validity: ${formatDate(member.membershipStartDate)} – ${formatDate(member.membershipEndDate)}`,
     `Membership total: ${formatMoney(member.totalAmount, gym.currency)}`,
-    `Paid: ${formatMoney(member.paidAmount, gym.currency)}`,
-    outstanding > 0
-      ? `Outstanding / still pending: ${formatMoney(outstanding, gym.currency)}`
-      : "Outstanding: Nil — fully paid",
     `Amount this receipt: ${formatMoney(payment.amount, gym.currency)}`,
     `Previous pending: ${formatMoney(previousPending, gym.currency)}`,
+    outstanding > 0
+      ? `Outstanding after this: ${formatMoney(outstanding, gym.currency)}`
+      : "Outstanding: Nil — fully paid",
+    `Total paid so far: ${formatMoney(member.paidAmount, gym.currency)}`,
   ];
   lines.forEach((line, i) => doc.text(line, 20, 62 + i * 8));
   doc.setFontSize(9);

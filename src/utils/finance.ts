@@ -59,6 +59,10 @@ export function validateMemberFinance(totalAmount: number, paidAmount: number): 
   return null;
 }
 
+export function computePendingAfterAdd(totalAmount: number, alreadyPaid: number, addAmount: number): number {
+  return computePendingAmount(totalAmount, alreadyPaid + roundMoney(Number(addAmount || 0)));
+}
+
 export function validateAddPayment(totalAmount: number, alreadyPaid: number, addAmount: number): string | null {
   if (!Number.isFinite(totalAmount) || totalAmount < 0) return "Enter a valid total amount.";
   if (!Number.isFinite(addAmount) || addAmount < 0) return "Payment amount cannot be negative.";

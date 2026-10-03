@@ -5,7 +5,7 @@ import { Badge, ConfirmDialog, ErrorState, Modal, PageHeader, Spinner, statusTon
 import { useAuthedApi } from "../hooks/useAuthedApi";
 import { useToast } from "../hooks/useToast";
 import type { Member, Payment, ReceiptData } from "../types";
-import { computePendingAmount, validateAddPayment } from "../utils/finance";
+import { computePendingAfterAdd, computePendingAmount, validateAddPayment } from "../utils/finance";
 import { formatDate, formatMoney } from "../utils/format";
 
 export function MemberDetailPage() {
@@ -68,8 +68,12 @@ export function MemberDetailPage() {
   }, [call, id]);
 
   const alreadyPaid = member?.paidAmount ?? 0;
+  const previousPending = useMemo(
+    () => computePendingAmount(Number(finance.totalAmount || 0), alreadyPaid),
+    [finance.totalAmount, alreadyPaid],
+  );
   const pendingPreview = useMemo(
-    () => computePendingAmount(Number(finance.totalAmount || 0), alreadyPaid + Number(finance.addAmount || 0)),
+    () => computePendingAfterAdd(Number(finance.totalAmount || 0), alreadyPaid, Number(finance.addAmount || 0)),
     [finance.totalAmount, finance.addAmount, alreadyPaid],
   );
 
@@ -197,7 +201,7 @@ export function MemberDetailPage() {
           <Info label="Start" value={formatDate(member.membershipStartDate)} />
           <Info label="End" value={formatDate(member.membershipEndDate)} />
           <Info label="Total" value={formatMoney(Number(finance.totalAmount || 0))} />
-          <Info label="Paid" value={formatMoney(alreadyPaid + Number(finance.addAmount || 0))} />
+          <Info label="Already paid" value={formatMoney(alreadyPaid)} />
           <Info label="Pending" value={formatMoney(pendingPreview)} />
           <Info
             label="Last payment"
@@ -215,7 +219,9 @@ export function MemberDetailPage() {
         </div>
         <form onSubmit={saveFinance} className="card space-y-3">
           <h2 className="font-semibold">Membership amounts</h2>
-          <p className="text-xs text-slate-500">Har save par naya payment pending se ghatega: 400 → pending 3600, phir 500 → 3100, phir 100 → 3000.</p>
+          <p className="text-xs text-slate-500">
+            Pehle ka paid clear nahi hota. Paid box khali = pending same rahegi. Naya amount previous pending se minus hoga.
+          </p>
           <div>
             <label className="label">Total</label>
             <input
@@ -228,21 +234,28 @@ export function MemberDetailPage() {
               required
             />
           </div>
-          <p className="text-sm text-slate-600">Already paid: <b>{formatMoney(alreadyPaid)}</b></p>
           <div>
-            <label className="label">This payment (new)</label>
+            <label className="label">Already paid (saved)</label>
+            <input className="input bg-slate-50" value={formatMoney(alreadyPaid)} readOnly />
+          </div>
+          <div>
+            <label className="label">Previous pending</label>
+            <input className="input bg-slate-50" value={formatMoney(previousPending)} readOnly />
+          </div>
+          <div>
+            <label className="label">Paid (this time only)</label>
             <input
               className="input"
               type="number"
               min="0"
               step="0.01"
-              placeholder="e.g. 400"
+              placeholder="e.g. 500"
               value={finance.addAmount}
               onChange={(e) => setFinance({ ...finance, addAmount: e.target.value })}
             />
           </div>
           <div>
-            <label className="label">Pending</label>
+            <label className="label">Pending after this payment</label>
             <input className="input bg-slate-50" value={formatMoney(pendingPreview)} readOnly />
           </div>
           <button className="btn-primary w-full" disabled={savingFinance} type="submit">

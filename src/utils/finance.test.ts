@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeNetIncome,
   computePaidFromPayments,
+  computePendingAfterAdd,
   computePendingAmount,
   validatePaymentAmount,
 } from "./finance";
@@ -45,5 +46,10 @@ describe("finance calculations", () => {
     expect(after1).toBe(3600);
     expect(after2).toBe(3100);
     expect(after3).toBe(3000);
+  });
+
+  it("clearing the new paid box keeps previous pending, then subtracts only the new amount", () => {
+    expect(computePendingAfterAdd(5000, 1500, 0)).toBe(3500);
+    expect(computePendingAfterAdd(5000, 1500, 500)).toBe(3000);
   });
 });

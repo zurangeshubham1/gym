@@ -44,11 +44,11 @@ export function ReceiptView({ receipt }: { receipt: ReceiptData }) {
         <Row label="Plan" value={planName} />
         <Row label="Payment date" value={formatDate(payment.paymentDate)} />
         <Row label="Membership total" value={formatMoney(member.totalAmount, gym.currency)} />
-        <Row label="Paid" value={formatMoney(member.paidAmount, gym.currency)} />
-        <Row label="Outstanding" value={outstanding > 0 ? formatMoney(outstanding, gym.currency) : "Nil — fully paid"} />
-        <Row label="Validity" value={`${formatDate(member.membershipStartDate)} – ${formatDate(member.membershipEndDate)}`} />
         <Row label="Amount this receipt" value={formatMoney(payment.amount, gym.currency)} />
         <Row label="Previous pending" value={formatMoney(previousPending, gym.currency)} />
+        <Row label="Outstanding after this" value={outstanding > 0 ? formatMoney(outstanding, gym.currency) : "Nil — fully paid"} />
+        <Row label="Total paid so far" value={formatMoney(member.paidAmount, gym.currency)} />
+        <Row label="Validity" value={`${formatDate(member.membershipStartDate)} – ${formatDate(member.membershipEndDate)}`} />
       </dl>
       {outstanding > 0 ? (
         <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900">
