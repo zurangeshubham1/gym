@@ -167,7 +167,7 @@ export function PaymentsPage() {
       <Modal open={Boolean(receipt)} title="Paid receipt" showClose={false} onClose={() => setReceipt(null)}>
         {receipt ? (
           <div>
-            <div className="no-print mb-4 flex flex-wrap gap-2">
+            <div className="no-print sticky top-0 z-10 mb-4 flex flex-wrap gap-2 bg-white pb-2">
               <button className="btn-secondary" type="button" onClick={() => window.print()}>Print</button>
               <button className="btn-primary" type="button" onClick={() => void downloadReceiptPdf(receipt)}>Download PDF</button>
               <button className="btn-secondary" type="button" onClick={() => setReceipt(null)}>Done</button>

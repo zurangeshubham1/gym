@@ -57,18 +57,18 @@ export function Modal({
 }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 p-4 sm:items-center">
+    <div className="fixed inset-0 z-[80] flex items-stretch justify-center bg-black/50 p-0 sm:items-center sm:p-4">
       <button className="absolute inset-0" aria-label="Close" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl">
-        <div className="mb-4 flex items-center justify-between">
+      <div className="relative z-10 flex max-h-[100dvh] w-full max-w-lg flex-col overflow-hidden rounded-none bg-white shadow-xl sm:max-h-[90dvh] sm:rounded-2xl">
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
           <h2 className="text-lg font-semibold">{title}</h2>
           {showClose ? (
-            <button className="text-slate-500" type="button" onClick={onClose}>
+            <button className="min-h-11 min-w-11 text-slate-500" type="button" onClick={onClose}>
               ✕
             </button>
           ) : null}
         </div>
-        {children}
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">{children}</div>
       </div>
     </div>
   );
@@ -106,12 +106,12 @@ export function ConfirmDialog({
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: ReactNode }) {
   return (
-    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="relative z-10 mb-6 flex flex-col gap-3">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
         {subtitle ? <p className="mt-1 text-sm text-slate-500">{subtitle}</p> : null}
       </div>
-      {actions}
+      {actions ? <div className="relative z-20 flex flex-wrap gap-2">{actions}</div> : null}
     </div>
   );
 }

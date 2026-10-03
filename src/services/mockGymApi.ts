@@ -317,6 +317,14 @@ export const mockGymApi: GymApi = {
       ...data,
       totalAmount: data.totalAmount != null ? roundMoney(data.totalAmount) : current.totalAmount,
     };
+    if (next.status === "ACTIVE") {
+      const today = todayIso(TZ);
+      if (!next.membershipEndDate || next.membershipEndDate < today) {
+        const plan = planById(next.membershipPlanId);
+        next.membershipStartDate = today;
+        next.membershipEndDate = addDaysIso(today, plan?.durationDays || 30);
+      }
+    }
     members[idx] = refreshMember(next);
     return ok(members[idx]);
   },
@@ -330,41 +338,36 @@ export const mockGymApi: GymApi = {
     const previousPending = members[idx].pendingAmount;
     const targetPaid = roundMoney(data.paidAmount);
     members[idx] = refreshMember({ ...members[idx], totalAmount: roundMoney(data.totalAmount) });
-    let loops = 0;
-    while (members[idx].paidAmount > targetPaid && loops < 200) {
-      loops += 1;
-      const newest = [...payments]
-        .filter((p) => p.memberId === data.memberId && p.paymentStatus === "PAID")
-        .sort((a, b) => b.paymentDate.localeCompare(a.paymentDate))[0];
-      if (!newest) break;
-      payments = payments.map((p) => (p.paymentId === newest.paymentId ? { ...p, paymentStatus: "PENDING" } : p));
+    let payment: Payment | undefined;
+    if (members[idx].paidAmount !== targetPaid) {
+      payments = payments.map((p) =>
+        p.memberId === data.memberId && p.paymentStatus === "PAID" ? { ...p, paymentStatus: "PENDING" } : p,
+      );
+      if (targetPaid > 0) {
+        payment = {
+          paymentId: nextSequentialId("PAY", payments.map((p) => p.paymentId)),
+          memberId: data.memberId,
+          paymentDate: todayIso(TZ),
+          amount: targetPaid,
+          paymentMethod: "CASH",
+          transactionReference: "",
+          paymentStatus: "PAID",
+          notes: "Admin set paid amount",
+          createdAt: nowIso(),
+          createdBy: auth.data.username,
+        };
+        payments.push(payment);
+      }
       members[idx] = refreshMember(members[idx]);
     }
-    const delta = roundMoney(targetPaid - members[idx].paidAmount);
-    let payment: Payment | undefined;
-    if (delta > 0) {
-      payment = {
-        paymentId: nextSequentialId("PAY", payments.map((p) => p.paymentId)),
-        memberId: data.memberId,
-        paymentDate: todayIso(TZ),
-        amount: delta,
-        paymentMethod: "CASH",
-        transactionReference: "",
-        paymentStatus: "PAID",
-        notes: "Admin set paid amount",
-        createdAt: nowIso(),
-        createdBy: auth.data.username,
-      };
-      payments.push(payment);
-      members[idx] = refreshMember(members[idx]);
-    } else {
+    if (!payment) {
       payment = [...payments]
         .filter((p) => p.memberId === data.memberId && p.paymentStatus === "PAID")
-        .sort((a, b) => b.paymentDate.localeCompare(a.paymentDate))[0] ?? {
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? {
         paymentId: `BAL-${data.memberId}`,
         memberId: data.memberId,
         paymentDate: todayIso(TZ),
-        amount: 0,
+        amount: targetPaid,
         paymentMethod: "CASH",
         transactionReference: "",
         paymentStatus: "PAID",

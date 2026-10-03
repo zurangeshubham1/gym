@@ -87,18 +87,19 @@ export function AdminLayout() {
         </div>
       </aside>
       <div className="min-w-0 flex-1">
-        <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-slate-200 bg-white/90 px-4 backdrop-blur no-print">
-          <button className="rounded-lg p-2 hover:bg-slate-100 lg:hidden" onClick={() => setOpen(true)}>
+        <header className="sticky top-0 z-20 flex h-14 items-center justify-between gap-2 border-b border-slate-200 bg-white px-3 no-print sm:h-16 sm:px-4">
+          <button className="relative z-30 min-h-11 min-w-11 rounded-lg p-2 hover:bg-slate-100 lg:hidden" type="button" onClick={() => setOpen(true)}>
             <Menu className="h-5 w-5" />
           </button>
-          <div className="hidden text-sm text-slate-500 lg:block">
+          <div className="hidden min-w-0 truncate text-sm text-slate-500 lg:block">
             {isApiConfigured() ? "Connected to Apps Script" : IS_DEV ? "Local demo mode (no Sheet yet)" : "API URL missing"}
           </div>
-          <NavLink to="/payments/new" className="btn-primary">
-            <Receipt className="h-4 w-4" /> Record payment
+          <NavLink to="/payments/new" className="btn-primary relative z-30 shrink-0 px-3 text-xs sm:px-4 sm:text-sm">
+            <Receipt className="h-4 w-4" />
+            <span className="sm:inline">Pay</span>
           </NavLink>
         </header>
-        <main className="p-4 sm:p-6 lg:p-8">
+        <main className="relative z-0 p-3 pb-24 sm:p-6 lg:p-8">
           <Outlet />
         </main>
       </div>

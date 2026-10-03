@@ -22,7 +22,16 @@ export function MemberDetailPage() {
   const [confirm, setConfirm] = useState(false);
   const [savingFinance, setSavingFinance] = useState(false);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
-  const [form, setForm] = useState({ fullName: "", mobile: "", email: "", address: "", notes: "" });
+  const [form, setForm] = useState({
+    fullName: "",
+    mobile: "",
+    email: "",
+    address: "",
+    notes: "",
+    status: "ACTIVE",
+    membershipStartDate: "",
+    membershipEndDate: "",
+  });
   const [finance, setFinance] = useState({ totalAmount: "", paidAmount: "" });
 
   async function reload() {
@@ -40,6 +49,9 @@ export function MemberDetailPage() {
         email: m.data.email,
         address: m.data.address,
         notes: m.data.notes,
+        status: m.data.status,
+        membershipStartDate: m.data.membershipStartDate,
+        membershipEndDate: m.data.membershipEndDate,
       });
       setFinance({
         totalAmount: String(m.data.totalAmount),
@@ -64,7 +76,19 @@ export function MemberDetailPage() {
   async function save(e: FormEvent) {
     e.preventDefault();
     if (!id) return;
-    const result = await call((api, token) => api.updateMember(token, { memberId: id, ...form }));
+    const result = await call((api, token) =>
+      api.updateMember(token, {
+        memberId: id,
+        fullName: form.fullName,
+        mobile: form.mobile,
+        email: form.email,
+        address: form.address,
+        notes: form.notes,
+        status: form.status as Member["status"],
+        membershipStartDate: form.membershipStartDate,
+        membershipEndDate: form.membershipEndDate,
+      }),
+    );
     if (!result.ok) {
       push(result.error, "error");
       return;
@@ -101,6 +125,31 @@ export function MemberDetailPage() {
     push("Amounts saved. Receipt ready.", "success");
   }
 
+  async function reactivate() {
+    if (!id || !member) return;
+    const result = await call((api, token) =>
+      api.updateMember(token, {
+        memberId: id,
+        status: "ACTIVE",
+        membershipStartDate: member.membershipStartDate,
+        membershipEndDate: member.membershipEndDate,
+        notes: form.notes,
+      }),
+    );
+    if (!result.ok) {
+      push(result.error, "error");
+      return;
+    }
+    setMember(result.data);
+    setForm((f) => ({
+      ...f,
+      status: result.data.status,
+      membershipStartDate: result.data.membershipStartDate,
+      membershipEndDate: result.data.membershipEndDate,
+    }));
+    push("Member activated. Membership dates renewed from today.", "success");
+  }
+
   async function deactivate() {
     if (!id) return;
     const result = await call((api, token) => api.deactivateMember(token, id));
@@ -117,15 +166,24 @@ export function MemberDetailPage() {
   if (error) return <ErrorState message={error} />;
   if (!member) return <ErrorState message="Member not found." />;
 
+  const lastPaid = [...payments]
+    .filter((p) => p.paymentStatus === "PAID")
+    .sort((a, b) => b.paymentDate.localeCompare(a.paymentDate) || b.createdAt.localeCompare(a.createdAt))[0];
+
   return (
     <div>
       <PageHeader
         title={member.fullName}
         subtitle={member.memberId}
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Link className="btn-primary" to={`/payments/new?memberId=${member.memberId}`}>Add payment</Link>
-            <button className="btn-secondary" type="button" onClick={() => setEditing((v) => !v)}>Edit</button>
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap">
+            <Link className="btn-primary col-span-2 sm:col-span-1" to={`/payments/new?memberId=${member.memberId}`}>Add payment</Link>
+            <button className="btn-secondary relative z-20" type="button" onClick={() => setEditing((v) => !v)}>
+              {editing ? "Close edit" : "Edit"}
+            </button>
+            {member.status === "EXPIRED" || member.status === "INACTIVE" || member.status === "SUSPENDED" ? (
+              <button className="btn-primary" type="button" onClick={() => void reactivate()}>Activate again</button>
+            ) : null}
             <button className="btn-danger" type="button" onClick={() => setConfirm(true)}>Deactivate</button>
           </div>
         }
@@ -141,7 +199,14 @@ export function MemberDetailPage() {
           <Info label="Total" value={formatMoney(Number(finance.totalAmount || 0))} />
           <Info label="Paid" value={formatMoney(Number(finance.paidAmount || 0))} />
           <Info label="Pending" value={formatMoney(pendingPreview)} />
-          <Info label="Last payment" value={formatDate(member.lastPaymentDate)} />
+          <Info
+            label="Last payment"
+            value={
+              lastPaid
+                ? `${formatMoney(lastPaid.amount)} · ${formatDate(lastPaid.paymentDate)}`
+                : formatDate(member.lastPaymentDate)
+            }
+          />
           <div>
             <p className="text-slate-500">Status</p>
             <Badge tone={statusTone(member.status)}>{member.status}</Badge>
@@ -150,7 +215,7 @@ export function MemberDetailPage() {
         </div>
         <form onSubmit={saveFinance} className="card space-y-3">
           <h2 className="font-semibold">Membership amounts</h2>
-          <p className="text-xs text-slate-500">Only Total and Paid are editable. Pending updates automatically.</p>
+          <p className="text-xs text-slate-500">Paid = total received so far (not just today). Saving creates one PAID receipt for this total.</p>
           <div>
             <label className="label">Total</label>
             <input
@@ -164,7 +229,7 @@ export function MemberDetailPage() {
             />
           </div>
           <div>
-            <label className="label">Paid</label>
+            <label className="label">Total paid so far</label>
             <input
               className="input"
               type="number"
@@ -190,6 +255,24 @@ export function MemberDetailPage() {
             <input className="input" value={form.mobile} onChange={(e) => setForm({ ...form, mobile: e.target.value })} />
             <input className="input" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             <textarea className="input" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+            <div>
+              <label className="label">Status</label>
+              <select className="input" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                <option value="ACTIVE">ACTIVE</option>
+                <option value="EXPIRED">EXPIRED</option>
+                <option value="SUSPENDED">SUSPENDED</option>
+                <option value="INACTIVE">INACTIVE</option>
+              </select>
+            </div>
+            <div>
+              <label className="label">Membership start</label>
+              <input className="input" type="date" value={form.membershipStartDate} onChange={(e) => setForm({ ...form, membershipStartDate: e.target.value })} />
+            </div>
+            <div>
+              <label className="label">Membership end</label>
+              <input className="input" type="date" value={form.membershipEndDate} onChange={(e) => setForm({ ...form, membershipEndDate: e.target.value })} />
+            </div>
+            <p className="text-xs text-slate-500">Expired member ko ACTIVE karne par end date aaj se aage honi chahiye, ya Activate again use karo (plan duration se renew).</p>
             <textarea className="input" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             <button className="btn-primary" type="submit">Save</button>
           </form>
@@ -231,7 +314,7 @@ export function MemberDetailPage() {
       <Modal open={Boolean(receipt)} title="Receipt" showClose={false} onClose={() => setReceipt(null)}>
         {receipt ? (
           <div>
-            <div className="no-print mb-4 flex flex-wrap gap-2">
+            <div className="no-print sticky top-0 z-10 mb-4 flex flex-wrap gap-2 bg-white pb-2">
               <button className="btn-secondary" type="button" onClick={() => window.print()}>Print</button>
               <button className="btn-primary" type="button" onClick={() => void downloadReceiptPdf(receipt)}>Download PDF</button>
               <button className="btn-secondary" type="button" onClick={() => setReceipt(null)}>Done</button>

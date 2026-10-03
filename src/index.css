@@ -5,9 +5,11 @@
 @layer base {
   html {
     @apply scroll-smooth;
+    -webkit-text-size-adjust: 100%;
   }
   body {
     @apply m-0 min-h-screen bg-slate-50 text-slate-900 antialiased;
+    padding-bottom: env(safe-area-inset-bottom);
   }
   #root {
     @apply min-h-screen;
@@ -19,10 +21,10 @@
     @apply mb-1 block text-sm font-medium text-slate-700;
   }
   .input {
-    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none ring-gym-500/20 transition focus:border-gym-500 focus:ring-4;
+    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-base outline-none ring-gym-500/20 transition focus:border-gym-500 focus:ring-4 sm:py-2 sm:text-sm;
   }
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primary {
     @apply btn bg-gym-700 text-white hover:bg-gym-600;

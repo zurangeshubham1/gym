@@ -379,9 +379,19 @@ function actionUpdateMember_(data) {
     if (data[fields[i]] != null) member[fields[i]] = data[fields[i]];
   }
   if (data.totalAmount != null) member.totalAmount = round_(Number(data.totalAmount));
+  if (String(member.status) === "ACTIVE") {
+    var today = todayIso_();
+    if (!member.membershipEndDate || daysUntil_(member.membershipEndDate, today) < 0) {
+      var plan = findById_(SHEETS.Plans, "planId", member.membershipPlanId);
+      var days = plan ? Number(plan.durationDays) : 30;
+      if (!days) days = 30;
+      member.membershipStartDate = today;
+      member.membershipEndDate = addDaysIso_(today, days);
+    }
+  }
   writeById_(SHEETS.Members, "memberId", member.memberId, member);
   member = recalcMember_(member.memberId);
-  audit_(data.__user.username, "MEMBER_UPDATED", "Members", member.memberId, member.fullName);
+  audit_(data.__user.username, "MEMBER_UPDATED", "Members", member.memberId, member.fullName + " " + member.status);
   return ok_(member);
 }
 
@@ -401,49 +411,43 @@ function actionUpdateMemberFinance_(data) {
     member.totalAmount = total;
     writeById_(SHEETS.Members, "memberId", member.memberId, member);
     member = recalcMember_(member.memberId);
-    var safety = 0;
-    while (round_(Number(member.paidAmount)) > targetPaid && safety < 200) {
-      safety++;
+    var payment = null;
+    if (round_(Number(member.paidAmount)) !== targetPaid) {
       var paidRows = readObjects_(SHEETS.Payments).filter(function (p) {
         return p.memberId === member.memberId && String(p.paymentStatus) === "PAID";
-      }).sort(function (a, b) {
-        return String(b.paymentDate).localeCompare(String(a.paymentDate));
       });
-      if (!paidRows.length) break;
-      var newest = paidRows[0];
-      newest.paymentStatus = "PENDING";
-      writeById_(SHEETS.Payments, "paymentId", newest.paymentId, newest);
+      for (var i = 0; i < paidRows.length; i++) {
+        paidRows[i].paymentStatus = "PENDING";
+        writeById_(SHEETS.Payments, "paymentId", paidRows[i].paymentId, paidRows[i]);
+      }
+      if (targetPaid > 0) {
+        payment = {
+          paymentId: nextId_(SHEETS.Payments, "paymentId", "PAY"),
+          memberId: member.memberId,
+          paymentDate: todayIso_(),
+          amount: targetPaid,
+          paymentMethod: "CASH",
+          transactionReference: "",
+          paymentStatus: "PAID",
+          notes: "Admin set paid amount",
+          createdAt: now_(),
+          createdBy: data.__user.username,
+        };
+        appendObject_(SHEETS.Payments, payment);
+      }
       member = recalcMember_(member.memberId);
     }
-    var currentPaid = round_(Number(member.paidAmount));
-    var payment = null;
-    var delta = round_(targetPaid - currentPaid);
-    if (delta > 0) {
-      payment = {
-        paymentId: nextId_(SHEETS.Payments, "paymentId", "PAY"),
-        memberId: member.memberId,
-        paymentDate: todayIso_(),
-        amount: delta,
-        paymentMethod: "CASH",
-        transactionReference: "",
-        paymentStatus: "PAID",
-        notes: "Admin set paid amount",
-        createdAt: now_(),
-        createdBy: data.__user.username,
-      };
-      appendObject_(SHEETS.Payments, payment);
-      member = recalcMember_(member.memberId);
-    } else {
+    if (!payment) {
       var paidList = readObjects_(SHEETS.Payments).filter(function (p) {
         return p.memberId === member.memberId && String(p.paymentStatus) === "PAID";
       }).sort(function (a, b) {
-        return String(b.paymentDate).localeCompare(String(a.paymentDate));
+        return String(b.createdAt).localeCompare(String(a.createdAt));
       });
       payment = paidList.length ? paidList[0] : {
         paymentId: "BAL-" + member.memberId,
         memberId: member.memberId,
         paymentDate: todayIso_(),
-        amount: 0,
+        amount: targetPaid,
         paymentMethod: "CASH",
         transactionReference: "",
         paymentStatus: "PAID",
@@ -850,9 +854,25 @@ function readObjects_(name) {
   return rows;
 }
 
+function sheetTz_() {
+  try {
+    return SpreadsheetApp.getActive().getSpreadsheetTimeZone() || "Asia/Kolkata";
+  } catch (err) {
+    return "Asia/Kolkata";
+  }
+}
+
 function normalizeCell_(value) {
   if (Object.prototype.toString.call(value) === "[object Date]") {
-    return Utilities.formatDate(value, "UTC", "yyyy-MM-dd");
+    return Utilities.formatDate(value, sheetTz_(), "yyyy-MM-dd");
+  }
+  return value;
+}
+
+function toSheetValue_(value) {
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    var p = value.split("-");
+    return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]), 12, 0, 0);
   }
   return value;
 }
@@ -860,7 +880,7 @@ function normalizeCell_(value) {
 function appendObject_(name, obj) {
   var sheet = sheet_(name);
   var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  var row = headers.map(function (h) { return obj[h] != null ? obj[h] : ""; });
+  var row = headers.map(function (h) { return obj[h] != null ? toSheetValue_(obj[h]) : ""; });
   sheet.appendRow(row);
 }
 
@@ -871,7 +891,7 @@ function writeAllObjects_(name, rows) {
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
   if (!rows.length) return;
   var values = rows.map(function (obj) {
-    return headers.map(function (h) { return obj[h] != null ? obj[h] : ""; });
+    return headers.map(function (h) { return obj[h] != null ? toSheetValue_(obj[h]) : ""; });
   });
   sheet.getRange(2, 1, values.length, headers.length).setValues(values);
 }
