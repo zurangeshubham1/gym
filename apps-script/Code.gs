@@ -397,47 +397,36 @@ function actionUpdateMember_(data) {
 
 function actionUpdateMemberFinance_(data) {
   var total = round_(Number(data.totalAmount));
-  var targetPaid = round_(Number(data.paidAmount));
+  var addAmount = round_(Number(data.addAmount || 0));
   if (!isFinite(total) || total < 0) return fail_("Total amount cannot be negative.", "INVALID_AMOUNT");
-  if (!isFinite(targetPaid) || targetPaid < 0) return fail_("Paid amount cannot be negative.", "NEGATIVE_AMOUNT");
-  if (targetPaid > total) return fail_("Paid cannot be greater than total.", "EXCEEDS_PENDING");
+  if (!isFinite(addAmount) || addAmount < 0) return fail_("Payment amount cannot be negative.", "NEGATIVE_AMOUNT");
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
     var member = findById_(SHEETS.Members, "memberId", data.memberId);
     if (!member) return fail_("Member not found.", "MISSING_MEMBER");
-    member = hydrateMember_(member);
-    var previousPending = Number(member.pendingAmount);
     member.totalAmount = total;
     writeById_(SHEETS.Members, "memberId", member.memberId, member);
     member = recalcMember_(member.memberId);
+    var previousPending = Number(member.pendingAmount);
     var payment = null;
-    if (round_(Number(member.paidAmount)) !== targetPaid) {
-      var paidRows = readObjects_(SHEETS.Payments).filter(function (p) {
-        return p.memberId === member.memberId && String(p.paymentStatus) === "PAID";
-      });
-      for (var i = 0; i < paidRows.length; i++) {
-        paidRows[i].paymentStatus = "PENDING";
-        writeById_(SHEETS.Payments, "paymentId", paidRows[i].paymentId, paidRows[i]);
-      }
-      if (targetPaid > 0) {
-        payment = {
-          paymentId: nextId_(SHEETS.Payments, "paymentId", "PAY"),
-          memberId: member.memberId,
-          paymentDate: todayIso_(),
-          amount: targetPaid,
-          paymentMethod: "CASH",
-          transactionReference: "",
-          paymentStatus: "PAID",
-          notes: "Admin set paid amount",
-          createdAt: now_(),
-          createdBy: data.__user.username,
-        };
-        appendObject_(SHEETS.Payments, payment);
-      }
+    if (addAmount > 0) {
+      if (addAmount > previousPending) return fail_("Payment cannot be greater than the pending amount.", "EXCEEDS_PENDING");
+      payment = {
+        paymentId: nextId_(SHEETS.Payments, "paymentId", "PAY"),
+        memberId: member.memberId,
+        paymentDate: todayIso_(),
+        amount: addAmount,
+        paymentMethod: "CASH",
+        transactionReference: "",
+        paymentStatus: "PAID",
+        notes: "Admin payment",
+        createdAt: now_(),
+        createdBy: data.__user.username,
+      };
+      appendObject_(SHEETS.Payments, payment);
       member = recalcMember_(member.memberId);
-    }
-    if (!payment) {
+    } else {
       var paidList = readObjects_(SHEETS.Payments).filter(function (p) {
         return p.memberId === member.memberId && String(p.paymentStatus) === "PAID";
       }).sort(function (a, b) {
@@ -447,7 +436,7 @@ function actionUpdateMemberFinance_(data) {
         paymentId: "BAL-" + member.memberId,
         memberId: member.memberId,
         paymentDate: todayIso_(),
-        amount: targetPaid,
+        amount: 0,
         paymentMethod: "CASH",
         transactionReference: "",
         paymentStatus: "PAID",
@@ -456,7 +445,7 @@ function actionUpdateMemberFinance_(data) {
         createdBy: data.__user.username,
       };
     }
-    audit_(data.__user.username, "MEMBER_FINANCE", "Members", member.memberId, "Total " + total + " Paid " + targetPaid);
+    audit_(data.__user.username, "MEMBER_FINANCE", "Members", member.memberId, "Add " + addAmount);
     return ok_({
       member: member,
       receipt: buildReceipt_(payment, member, previousPending),

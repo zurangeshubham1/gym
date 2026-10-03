@@ -3,7 +3,6 @@ import {
   computeNetIncome,
   computePaidFromPayments,
   computePendingAmount,
-  validateMemberFinance,
   validatePaymentAmount,
 } from "./finance";
 
@@ -38,9 +37,13 @@ describe("finance calculations", () => {
     expect(computeNetIncome(25000, 8000)).toBe(17000);
   });
 
-  it("pending follows editable total and paid", () => {
-    expect(computePendingAmount(4000, 1500)).toBe(2500);
-    expect(validateMemberFinance(4000, 1500)).toBeNull();
-    expect(validateMemberFinance(4000, 5000)).toBe("Paid cannot be greater than total.");
+  it("pending follows successive payments 400 then 500 then 100", () => {
+    const total = 4000;
+    const after1 = computePendingAmount(total, 400);
+    const after2 = computePendingAmount(total, 400 + 500);
+    const after3 = computePendingAmount(total, 400 + 500 + 100);
+    expect(after1).toBe(3600);
+    expect(after2).toBe(3100);
+    expect(after3).toBe(3000);
   });
 });

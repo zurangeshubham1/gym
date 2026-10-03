@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ReceiptView } from "../components/payments/ReceiptView";
+import { ReceiptActions, ReceiptView } from "../components/payments/ReceiptView";
 import { Badge, ConfirmDialog, EmptyState, ErrorState, Modal, PageHeader, Spinner, statusTone } from "../components/ui/Feedback";
 import { PAYMENT_METHODS } from "../config/constants";
 import { useAuthedApi } from "../hooks/useAuthedApi";
 import { useToast } from "../hooks/useToast";
 import type { Payment, ReceiptData } from "../types";
 import { formatDate, formatMoney } from "../utils/format";
-import { downloadReceiptPdf } from "../utils/receipt";
 
 export function PaymentsPage() {
   const { call } = useAuthedApi();
@@ -164,17 +163,14 @@ export function PaymentsPage() {
           </table>
         </div>
       )}
-      <Modal open={Boolean(receipt)} title="Paid receipt" showClose={false} onClose={() => setReceipt(null)}>
-        {receipt ? (
-          <div>
-            <div className="no-print sticky top-0 z-10 mb-4 flex flex-wrap gap-2 bg-white pb-2">
-              <button className="btn-secondary" type="button" onClick={() => window.print()}>Print</button>
-              <button className="btn-primary" type="button" onClick={() => void downloadReceiptPdf(receipt)}>Download PDF</button>
-              <button className="btn-secondary" type="button" onClick={() => setReceipt(null)}>Done</button>
-            </div>
-            <ReceiptView receipt={receipt} />
-          </div>
-        ) : null}
+      <Modal
+        open={Boolean(receipt)}
+        title="Paid receipt"
+        showClose={false}
+        onClose={() => setReceipt(null)}
+        footer={receipt ? <ReceiptActions receipt={receipt} onDone={() => setReceipt(null)} /> : null}
+      >
+        {receipt ? <ReceiptView receipt={receipt} /> : null}
       </Modal>
       <ConfirmDialog
         open={Boolean(paidId)}

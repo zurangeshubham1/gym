@@ -46,12 +46,14 @@ export function Modal({
   open,
   title,
   children,
+  footer,
   onClose,
   showClose = true,
 }: {
   open: boolean;
   title: string;
   children: ReactNode;
+  footer?: ReactNode;
   onClose: () => void;
   showClose?: boolean;
 }) {
@@ -59,7 +61,7 @@ export function Modal({
   return (
     <div className="fixed inset-0 z-[80] flex items-stretch justify-center bg-black/50 p-0 sm:items-center sm:p-4">
       <button className="absolute inset-0" aria-label="Close" onClick={onClose} />
-      <div className="relative z-10 flex max-h-[100dvh] w-full max-w-lg flex-col overflow-hidden rounded-none bg-white shadow-xl sm:max-h-[90dvh] sm:rounded-2xl">
+      <div className="relative z-10 flex h-[100dvh] w-full max-w-lg flex-col overflow-hidden rounded-none bg-white shadow-xl sm:h-auto sm:max-h-[90dvh] sm:rounded-2xl">
         <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
           <h2 className="text-lg font-semibold">{title}</h2>
           {showClose ? (
@@ -68,7 +70,14 @@ export function Modal({
             </button>
           ) : null}
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">{children}</div>
+        <div className="modal-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">{children}</div>
+        {footer ? (
+          <div className="no-print shrink-0 border-t border-slate-200 bg-white px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            {footer}
+          </div>
+        ) : (
+          <div className="h-[env(safe-area-inset-bottom)] shrink-0 sm:hidden" />
+        )}
       </div>
     </div>
   );

@@ -4,7 +4,7 @@ import {
   computePendingAmount,
   paymentErrorMessage,
   roundMoney,
-  validateMemberFinance,
+  validateAddPayment,
   validatePaymentAmount,
 } from "../utils/finance";
 import { addDaysIso, deriveMemberStatus, expiryBucket, inRange, monthKey, todayIso } from "../utils/dates";
@@ -331,43 +331,37 @@ export const mockGymApi: GymApi = {
   async updateMemberFinance(token, data: UpdateMemberFinanceInput) {
     const auth = requireUser(token);
     if (!auth.ok) return auth;
-    const invalid = validateMemberFinance(Number(data.totalAmount), Number(data.paidAmount));
-    if (invalid) return err(invalid);
     const idx = members.findIndex((m) => m.memberId === data.memberId);
     if (idx < 0) return err("Member not found.", "MISSING_MEMBER");
-    const previousPending = members[idx].pendingAmount;
-    const targetPaid = roundMoney(data.paidAmount);
+    const addAmount = roundMoney(Number(data.addAmount || 0));
     members[idx] = refreshMember({ ...members[idx], totalAmount: roundMoney(data.totalAmount) });
+    const invalid = validateAddPayment(members[idx].totalAmount, members[idx].paidAmount, addAmount);
+    if (invalid) return err(invalid);
+    const previousPending = members[idx].pendingAmount;
     let payment: Payment | undefined;
-    if (members[idx].paidAmount !== targetPaid) {
-      payments = payments.map((p) =>
-        p.memberId === data.memberId && p.paymentStatus === "PAID" ? { ...p, paymentStatus: "PENDING" } : p,
-      );
-      if (targetPaid > 0) {
-        payment = {
-          paymentId: nextSequentialId("PAY", payments.map((p) => p.paymentId)),
-          memberId: data.memberId,
-          paymentDate: todayIso(TZ),
-          amount: targetPaid,
-          paymentMethod: "CASH",
-          transactionReference: "",
-          paymentStatus: "PAID",
-          notes: "Admin set paid amount",
-          createdAt: nowIso(),
-          createdBy: auth.data.username,
-        };
-        payments.push(payment);
-      }
+    if (addAmount > 0) {
+      payment = {
+        paymentId: nextSequentialId("PAY", payments.map((p) => p.paymentId)),
+        memberId: data.memberId,
+        paymentDate: todayIso(TZ),
+        amount: addAmount,
+        paymentMethod: "CASH",
+        transactionReference: "",
+        paymentStatus: "PAID",
+        notes: "Admin payment",
+        createdAt: nowIso(),
+        createdBy: auth.data.username,
+      };
+      payments.push(payment);
       members[idx] = refreshMember(members[idx]);
-    }
-    if (!payment) {
+    } else {
       payment = [...payments]
         .filter((p) => p.memberId === data.memberId && p.paymentStatus === "PAID")
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? {
         paymentId: `BAL-${data.memberId}`,
         memberId: data.memberId,
         paymentDate: todayIso(TZ),
-        amount: targetPaid,
+        amount: 0,
         paymentMethod: "CASH",
         transactionReference: "",
         paymentStatus: "PAID",

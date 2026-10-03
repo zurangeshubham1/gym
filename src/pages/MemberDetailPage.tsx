@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ReceiptView } from "../components/payments/ReceiptView";
+import { ReceiptActions, ReceiptView } from "../components/payments/ReceiptView";
 import { Badge, ConfirmDialog, ErrorState, Modal, PageHeader, Spinner, statusTone } from "../components/ui/Feedback";
 import { useAuthedApi } from "../hooks/useAuthedApi";
 import { useToast } from "../hooks/useToast";
 import type { Member, Payment, ReceiptData } from "../types";
-import { computePendingAmount, validateMemberFinance } from "../utils/finance";
+import { computePendingAmount, validateAddPayment } from "../utils/finance";
 import { formatDate, formatMoney } from "../utils/format";
-import { downloadReceiptPdf } from "../utils/receipt";
 
 export function MemberDetailPage() {
   const { id } = useParams();
@@ -32,7 +31,7 @@ export function MemberDetailPage() {
     membershipStartDate: "",
     membershipEndDate: "",
   });
-  const [finance, setFinance] = useState({ totalAmount: "", paidAmount: "" });
+  const [finance, setFinance] = useState({ totalAmount: "", addAmount: "" });
 
   async function reload() {
     if (!id) return;
@@ -55,7 +54,7 @@ export function MemberDetailPage() {
       });
       setFinance({
         totalAmount: String(m.data.totalAmount),
-        paidAmount: String(m.data.paidAmount),
+        addAmount: "",
       });
     }
     if (p.ok) setPayments(p.data.filter((row) => row.memberId === id));
@@ -68,9 +67,10 @@ export function MemberDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [call, id]);
 
+  const alreadyPaid = member?.paidAmount ?? 0;
   const pendingPreview = useMemo(
-    () => computePendingAmount(Number(finance.totalAmount || 0), Number(finance.paidAmount || 0)),
-    [finance.totalAmount, finance.paidAmount],
+    () => computePendingAmount(Number(finance.totalAmount || 0), alreadyPaid + Number(finance.addAmount || 0)),
+    [finance.totalAmount, finance.addAmount, alreadyPaid],
   );
 
   async function save(e: FormEvent) {
@@ -100,16 +100,16 @@ export function MemberDetailPage() {
 
   async function saveFinance(e: FormEvent) {
     e.preventDefault();
-    if (!id) return;
+    if (!id || !member) return;
     const totalAmount = Number(finance.totalAmount);
-    const paidAmount = Number(finance.paidAmount);
-    const invalid = validateMemberFinance(totalAmount, paidAmount);
+    const addAmount = Number(finance.addAmount || 0);
+    const invalid = validateAddPayment(totalAmount, member.paidAmount, addAmount);
     if (invalid) {
       push(invalid, "error");
       return;
     }
     setSavingFinance(true);
-    const result = await call((api, token) => api.updateMemberFinance(token, { memberId: id, totalAmount, paidAmount }));
+    const result = await call((api, token) => api.updateMemberFinance(token, { memberId: id, totalAmount, addAmount }));
     setSavingFinance(false);
     if (!result.ok) {
       push(result.error, "error");
@@ -118,7 +118,7 @@ export function MemberDetailPage() {
     setMember(result.data.member);
     setFinance({
       totalAmount: String(result.data.member.totalAmount),
-      paidAmount: String(result.data.member.paidAmount),
+      addAmount: "",
     });
     await reload();
     setReceipt(result.data.receipt);
@@ -197,7 +197,7 @@ export function MemberDetailPage() {
           <Info label="Start" value={formatDate(member.membershipStartDate)} />
           <Info label="End" value={formatDate(member.membershipEndDate)} />
           <Info label="Total" value={formatMoney(Number(finance.totalAmount || 0))} />
-          <Info label="Paid" value={formatMoney(Number(finance.paidAmount || 0))} />
+          <Info label="Paid" value={formatMoney(alreadyPaid + Number(finance.addAmount || 0))} />
           <Info label="Pending" value={formatMoney(pendingPreview)} />
           <Info
             label="Last payment"
@@ -215,7 +215,7 @@ export function MemberDetailPage() {
         </div>
         <form onSubmit={saveFinance} className="card space-y-3">
           <h2 className="font-semibold">Membership amounts</h2>
-          <p className="text-xs text-slate-500">Paid = total received so far (not just today). Saving creates one PAID receipt for this total.</p>
+          <p className="text-xs text-slate-500">Har save par naya payment pending se ghatega: 400 → pending 3600, phir 500 → 3100, phir 100 → 3000.</p>
           <div>
             <label className="label">Total</label>
             <input
@@ -228,16 +228,17 @@ export function MemberDetailPage() {
               required
             />
           </div>
+          <p className="text-sm text-slate-600">Already paid: <b>{formatMoney(alreadyPaid)}</b></p>
           <div>
-            <label className="label">Total paid so far</label>
+            <label className="label">This payment (new)</label>
             <input
               className="input"
               type="number"
               min="0"
               step="0.01"
-              value={finance.paidAmount}
-              onChange={(e) => setFinance({ ...finance, paidAmount: e.target.value })}
-              required
+              placeholder="e.g. 400"
+              value={finance.addAmount}
+              onChange={(e) => setFinance({ ...finance, addAmount: e.target.value })}
             />
           </div>
           <div>
@@ -311,17 +312,14 @@ export function MemberDetailPage() {
           </tbody>
         </table>
       </div>
-      <Modal open={Boolean(receipt)} title="Receipt" showClose={false} onClose={() => setReceipt(null)}>
-        {receipt ? (
-          <div>
-            <div className="no-print sticky top-0 z-10 mb-4 flex flex-wrap gap-2 bg-white pb-2">
-              <button className="btn-secondary" type="button" onClick={() => window.print()}>Print</button>
-              <button className="btn-primary" type="button" onClick={() => void downloadReceiptPdf(receipt)}>Download PDF</button>
-              <button className="btn-secondary" type="button" onClick={() => setReceipt(null)}>Done</button>
-            </div>
-            <ReceiptView receipt={receipt} />
-          </div>
-        ) : null}
+      <Modal
+        open={Boolean(receipt)}
+        title="Receipt"
+        showClose={false}
+        onClose={() => setReceipt(null)}
+        footer={receipt ? <ReceiptActions receipt={receipt} onDone={() => setReceipt(null)} /> : null}
+      >
+        {receipt ? <ReceiptView receipt={receipt} /> : null}
       </Modal>
       <ConfirmDialog
         open={confirm}

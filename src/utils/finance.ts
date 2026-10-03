@@ -58,3 +58,14 @@ export function validateMemberFinance(totalAmount: number, paidAmount: number): 
   if (roundMoney(paidAmount) > roundMoney(totalAmount)) return "Paid cannot be greater than total.";
   return null;
 }
+
+export function validateAddPayment(totalAmount: number, alreadyPaid: number, addAmount: number): string | null {
+  if (!Number.isFinite(totalAmount) || totalAmount < 0) return "Enter a valid total amount.";
+  if (!Number.isFinite(addAmount) || addAmount < 0) return "Payment amount cannot be negative.";
+  if (addAmount === 0) return null;
+  const pending = computePendingAmount(totalAmount, alreadyPaid);
+  if (roundMoney(addAmount) > pending) {
+    return `Payment cannot be greater than pending (${pending}).`;
+  }
+  return null;
+}

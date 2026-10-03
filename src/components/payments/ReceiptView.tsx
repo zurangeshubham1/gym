@@ -1,11 +1,30 @@
 import type { ReceiptData } from "../../types";
 import { formatDate, formatMoney } from "../../utils/format";
+import { downloadReceiptPdf } from "../../utils/receipt";
+
+export function ReceiptActions({ receipt, onDone }: { receipt: ReceiptData; onDone: () => void }) {
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+      <button className="btn-primary w-full sm:w-auto" type="button" onClick={() => void downloadReceiptPdf(receipt)}>
+        Download PDF
+      </button>
+      <div className="flex gap-2">
+        <button className="btn-secondary min-h-11 flex-1 sm:flex-none" type="button" onClick={() => window.print()}>
+          Print
+        </button>
+        <button className="btn-secondary min-h-11 flex-1 sm:flex-none" type="button" onClick={onDone}>
+          Done
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export function ReceiptView({ receipt }: { receipt: ReceiptData }) {
   const { gym, payment, member, planName, previousPending, currentPending, outstandingAmount } = receipt;
   const outstanding = outstandingAmount ?? currentPending;
   return (
-    <div id="receipt-print" className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-8">
+    <div id="receipt-print" className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-4 sm:p-8">
       <div className="border-b border-slate-200 pb-4">
         <h2 className="text-2xl font-bold text-gym-900">{gym.gymName}</h2>
         <p className="text-sm text-slate-600">{gym.gymAddress}</p>

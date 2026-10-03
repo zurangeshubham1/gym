@@ -189,7 +189,7 @@ export interface UpdateMemberInput {
 export interface UpdateMemberFinanceInput {
   memberId: string;
   totalAmount: number;
-  paidAmount: number;
+  addAmount: number;
 }
 
 export interface CreatePaymentInput {
