@@ -5,7 +5,7 @@ import { Badge, ConfirmDialog, EmptyState, ErrorState, Modal, PageHeader, Spinne
 import { PAYMENT_METHODS } from "../config/constants";
 import { useAuthedApi } from "../hooks/useAuthedApi";
 import { useToast } from "../hooks/useToast";
-import type { Payment, ReceiptData } from "../types";
+import type { Member, Payment, ReceiptData } from "../types";
 import { formatDate, formatMoney } from "../utils/format";
 
 export function PaymentsPage() {
@@ -13,6 +13,7 @@ export function PaymentsPage() {
   const { push } = useToast();
   const [params] = useSearchParams();
   const [rows, setRows] = useState<Payment[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
@@ -26,10 +27,14 @@ export function PaymentsPage() {
   const [unpaidId, setUnpaidId] = useState("");
 
   useEffect(() => {
-    call((api, token) => api.getPayments(token)).then((result) => {
+    Promise.all([
+      call((api, token) => api.getPayments(token)),
+      call((api, token) => api.getMembers(token)),
+    ]).then(([payments, memberList]) => {
       setLoading(false);
-      if (!result.ok) setError(result.error);
-      else setRows(result.data);
+      if (!payments.ok) setError(payments.error);
+      else setRows(payments.data);
+      if (memberList.ok) setMembers(memberList.data);
     });
   }, [call]);
 
@@ -40,10 +45,19 @@ export function PaymentsPage() {
       if (status !== "ALL" && p.paymentStatus !== status) return false;
       if (from && p.paymentDate < from) return false;
       if (to && p.paymentDate > to) return false;
-      if (needle && ![p.paymentId, p.memberId, p.transactionReference].some((v) => v.toLowerCase().includes(needle))) return false;
+      if (needle && ![p.paymentId, p.memberId, p.transactionReference].some((v) => String(v || "").toLowerCase().includes(needle))) return false;
       return true;
     });
   }, [rows, q, method, status, from, to]);
+
+  const pendingMembers = useMemo(
+    () =>
+      members
+        .filter((m) => Number(m.pendingAmount) > 0)
+        .sort((a, b) => Number(b.pendingAmount) - Number(a.pendingAmount)),
+    [members],
+  );
+  const pendingTotal = pendingMembers.reduce((sum, m) => sum + Number(m.pendingAmount || 0), 0);
 
   async function openReceipt(paymentId: string) {
     const result = await call((api, token) => api.getReceipt(token, paymentId));
@@ -99,7 +113,49 @@ export function PaymentsPage() {
 
   return (
     <div>
-      <PageHeader title="Payments" actions={<Link className="btn-primary" to="/payments/new">Add payment</Link>} />
+      <PageHeader
+        title="Payments"
+        subtitle={`${pendingMembers.length} members still have pending dues · ${formatMoney(pendingTotal)}`}
+        actions={<Link className="btn-primary" to="/payments/new">Add payment</Link>}
+      />
+      {pendingMembers.length > 0 ? (
+        <div className="mb-6 overflow-x-auto rounded-2xl border border-amber-200 bg-amber-50">
+          <div className="flex items-center justify-between px-4 py-3">
+            <h2 className="font-semibold text-amber-950">Members with pending amount</h2>
+            <span className="text-sm font-medium text-amber-900">Total outstanding {formatMoney(pendingTotal)}</span>
+          </div>
+          <table className="min-w-full text-sm">
+            <thead className="text-xs uppercase text-amber-800">
+              <tr>
+                <th className="px-4 py-2 text-left">Member</th>
+                <th className="px-4 py-2 text-left">Name</th>
+                <th className="px-4 py-2 text-left">Pending</th>
+                <th className="px-4 py-2 text-left">Status</th>
+                <th className="px-4 py-2 text-left">Collect</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pendingMembers.map((m) => (
+                <tr key={m.memberId} className="border-t border-amber-200/70">
+                  <td className="px-4 py-2">
+                    <Link className="font-medium text-gym-800 hover:underline" to={`/members/${m.memberId}`}>{m.memberId}</Link>
+                  </td>
+                  <td className="px-4 py-2">{m.fullName}</td>
+                  <td className="px-4 py-2 font-semibold text-amber-950">{formatMoney(m.pendingAmount)}</td>
+                  <td className="px-4 py-2"><Badge tone={statusTone(m.status)}>{m.status}</Badge></td>
+                  <td className="px-4 py-2">
+                    <Link className="text-gym-800 hover:underline" to={`/members/${m.memberId}`}>Open member</Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          No member has a pending amount.
+        </p>
+      )}
       <div className="mb-4 grid gap-3 md:grid-cols-5">
         <input className="input md:col-span-2" placeholder="Search payment / member / reference" value={q} onChange={(e) => setQ(e.target.value)} />
         <select className="input" value={method} onChange={(e) => setMethod(e.target.value)}>

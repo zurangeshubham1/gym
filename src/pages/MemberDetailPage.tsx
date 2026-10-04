@@ -5,7 +5,7 @@ import { Badge, ConfirmDialog, ErrorState, Modal, PageHeader, Spinner, statusTon
 import { useAuthedApi } from "../hooks/useAuthedApi";
 import { useToast } from "../hooks/useToast";
 import type { Member, Payment, ReceiptData } from "../types";
-import { computePendingAfterAdd, computePendingAmount, roundMoney, validateAddPayment } from "../utils/finance";
+import { computePendingAfterAdd, roundMoney, validateAddPayment } from "../utils/finance";
 import { formatDate, formatMoney } from "../utils/format";
 
 export function MemberDetailPage() {
@@ -68,10 +68,6 @@ export function MemberDetailPage() {
   }, [call, id]);
 
   const alreadyPaid = member?.paidAmount ?? 0;
-  const previousPending = useMemo(
-    () => computePendingAmount(Number(finance.totalAmount || 0), alreadyPaid),
-    [finance.totalAmount, alreadyPaid],
-  );
   const pendingPreview = useMemo(
     () => computePendingAfterAdd(Number(finance.totalAmount || 0), alreadyPaid, Number(finance.addAmount || 0)),
     [finance.totalAmount, finance.addAmount, alreadyPaid],
@@ -244,10 +240,6 @@ export function MemberDetailPage() {
           <div>
             <label className="label">Already paid (saved)</label>
             <input className="input bg-slate-50" value={formatMoney(alreadyPaid)} readOnly />
-          </div>
-          <div>
-            <label className="label">Previous pending</label>
-            <input className="input bg-slate-50" value={formatMoney(previousPending)} readOnly />
           </div>
           <div>
             <label className="label">Paid (this time only)</label>

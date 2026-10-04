@@ -4,11 +4,15 @@
     <meta charset="utf-8" />
     <title>Gym Management</title>
     <script>
-      sessionStorage.setItem(
-        "gym-spa-redirect",
-        location.pathname + location.search + location.hash,
-      );
-      location.replace("./");
+      (function () {
+        sessionStorage.setItem(
+          "gym-spa-redirect",
+          location.pathname + location.search + location.hash,
+        );
+        var path = location.pathname;
+        var root = path === "/gym" || path.indexOf("/gym/") === 0 ? "/gym/" : "/";
+        location.replace(root);
+      })();
     </script>
   </head>
   <body></body>

@@ -1,10 +1,12 @@
 import { Link, Outlet } from "react-router-dom";
 import { Dumbbell } from "lucide-react";
+import { GymMotionHero } from "../components/public/GymMotionHero";
 
 export function PublicLayout() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gym-900 to-slate-950 text-white">
-      <header className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
+    <div className="relative min-h-screen overflow-hidden bg-gym-900 text-white">
+      <GymMotionHero />
+      <header className="relative z-10 mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
         <Link to="/" className="flex items-center gap-2 font-semibold">
           <Dumbbell className="h-5 w-5 text-gym-accent" />
           IronForge
@@ -18,7 +20,9 @@ export function PublicLayout() {
           </Link>
         </nav>
       </header>
-      <Outlet />
+      <div className="relative z-10">
+        <Outlet />
+      </div>
     </div>
   );
 }

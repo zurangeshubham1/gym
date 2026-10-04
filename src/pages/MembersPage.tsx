@@ -1,12 +1,28 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Badge, EmptyState, ErrorState, PageHeader, Spinner, statusTone } from "../components/ui/Feedback";
 import { useAuthedApi } from "../hooks/useAuthedApi";
 import type { Member } from "../types";
 import { formatDate, formatMoney } from "../utils/format";
 
+function memberMatches(member: Member, needle: string): boolean {
+  if (!needle) return true;
+  const haystack = [
+    member.memberId,
+    member.fullName,
+    member.mobile,
+    member.email,
+    member.membershipPlanId,
+    member.notes,
+  ]
+    .map((value) => String(value || "").toLowerCase())
+    .join(" ");
+  return haystack.includes(needle);
+}
+
 export function MembersPage() {
   const { call } = useAuthedApi();
+  const navigate = useNavigate();
   const [rows, setRows] = useState<Member[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -25,10 +41,14 @@ export function MembersPage() {
     const needle = q.trim().toLowerCase();
     return rows.filter((m) => {
       if (status !== "ALL" && m.status !== status) return false;
-      if (!needle) return true;
-      return [m.memberId, m.fullName, m.mobile].some((v) => v.toLowerCase().includes(needle));
+      return memberMatches(m, needle);
     });
   }, [rows, q, status]);
+
+  function onSearchSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (filtered.length === 1) navigate(`/members/${filtered[0].memberId}`);
+  }
 
   if (loading) return <Spinner />;
   if (error) return <ErrorState message={error} />;
@@ -37,11 +57,16 @@ export function MembersPage() {
     <div>
       <PageHeader
         title="Members"
-        subtitle="Search by ID, name, or mobile."
+        subtitle="Search by ID, name, mobile, or email. Results stay on this page."
         actions={<Link className="btn-primary" to="/members/new">Add member</Link>}
       />
-      <div className="mb-4 grid gap-3 sm:grid-cols-3">
-        <input className="input sm:col-span-2" placeholder="Search member ID, name, mobile" value={q} onChange={(e) => setQ(e.target.value)} />
+      <form className="mb-4 grid gap-3 sm:grid-cols-3" onSubmit={onSearchSubmit}>
+        <input
+          className="input sm:col-span-2"
+          placeholder="Search member ID, name, mobile, email"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
         <select className="input" value={status} onChange={(e) => setStatus(e.target.value)}>
           <option value="ALL">All statuses</option>
           <option>ACTIVE</option>
@@ -49,7 +74,7 @@ export function MembersPage() {
           <option>SUSPENDED</option>
           <option>INACTIVE</option>
         </select>
-      </div>
+      </form>
       {filtered.length === 0 ? (
         <EmptyState title="No members match" hint="Try another search or add a member." />
       ) : (
@@ -72,7 +97,9 @@ export function MembersPage() {
                   <td className="px-4 py-3 font-medium">
                     <Link className="text-gym-700 hover:underline" to={`/members/${m.memberId}`}>{m.memberId}</Link>
                   </td>
-                  <td className="px-4 py-3">{m.fullName}</td>
+                  <td className="px-4 py-3">
+                    <Link className="hover:text-gym-700 hover:underline" to={`/members/${m.memberId}`}>{m.fullName}</Link>
+                  </td>
                   <td className="px-4 py-3">{m.mobile}</td>
                   <td className="px-4 py-3">{m.membershipPlanId}</td>
                   <td className="px-4 py-3">{formatDate(m.membershipEndDate)}</td>
